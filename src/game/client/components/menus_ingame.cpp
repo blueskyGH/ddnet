@@ -360,7 +360,7 @@ void CMenus::RenderServerInfo(CUIRect MainView)
 	// render background
 	RenderTools()->DrawUIRect(&MainView, ms_ColorTabbarActive, CUI::CORNER_B, 10.0f);
 
-	CUIRect View, ServerInfo, GameInfo, Motd;
+	CUIRect View, ServerInfo, GameInfo, Motd, ServerInfoBottom;
 
 	float x = 0.0f;
 	float y = 0.0f;
@@ -400,18 +400,35 @@ void CMenus::RenderServerInfo(CUIRect MainView)
 
 	TextRender()->Text(0, ServerInfo.x + x, ServerInfo.y + y, 20, aBuf, 250.0f);
 
+	CUIRect FavoriteButton, ReportRemplateButton;
+
+	ServerInfo.HSplitBottom(20.0f, &ServerInfo, &ServerInfoBottom);
+	ServerInfoBottom.VSplitMid(&FavoriteButton, &ReportRemplateButton);
+
+	int IsFavorite = ServerBrowser()->IsFavorite(CurrentServerInfo.m_NetAddr);
+	static int s_AddFavButton = 0;
+	if(DoButton_CheckBox(&s_AddFavButton, Localize("Favorite"), IsFavorite, &FavoriteButton))
 	{
-		CUIRect Button;
-		int IsFavorite = ServerBrowser()->IsFavorite(CurrentServerInfo.m_NetAddr);
-		ServerInfo.HSplitBottom(20.0f, &ServerInfo, &Button);
-		static int s_AddFavButton = 0;
-		if(DoButton_CheckBox(&s_AddFavButton, Localize("Favorite"), IsFavorite, &Button))
-		{
-			if(IsFavorite)
-				ServerBrowser()->RemoveFavorite(CurrentServerInfo.m_NetAddr);
-			else
-				ServerBrowser()->AddFavorite(CurrentServerInfo.m_NetAddr);
-		}
+		if(IsFavorite)
+			ServerBrowser()->RemoveFavorite(CurrentServerInfo.m_NetAddr);
+		else
+			ServerBrowser()->AddFavorite(CurrentServerInfo.m_NetAddr);
+	}
+
+	// copy report template
+	static int s_ReportTemplateButton = 0;
+	if(DoButton_Menu(&s_ReportTemplateButton, Localize("Copy Report Template"), 0, &ReportRemplateButton))
+	{
+		mem_zero(aBuf, sizeof(aBuf));
+		str_format(aBuf,
+			sizeof(aBuf),
+			"@Moderator \n"
+			"%s\n"
+			"Address: %s\n"
+			"Please check this server",
+			CurrentServerInfo.m_aName,
+			CurrentServerInfo.m_aAddress);
+		Input()->SetClipboardText(aBuf);
 	}
 
 	// gameinfo
