@@ -205,7 +205,7 @@ class CMenus : public CComponent
 	};
 
 	void UiDoListboxStart(const void *pID, const CUIRect *pRect, float RowHeight, const char *pTitle, const char *pBottomText, int NumItems,
-		int ItemsPerRow, int SelectedIndex, float ScrollValue, bool LogicOnly = false);
+		int ItemsPerRow, int SelectedIndex, float ScrollValue, bool LogicOnly = false, int Corners = CUI::CORNER_ALL);
 	CListboxItem UiDoListboxNextItem(const void *pID, bool Selected = false, bool KeyEvents = true, bool NoHoverEffects = false);
 	CListboxItem UiDoListboxNextRow();
 	int UiDoListboxEnd(float *pScrollValue, bool *pItemActivated, bool *pListBoxActive = nullptr);

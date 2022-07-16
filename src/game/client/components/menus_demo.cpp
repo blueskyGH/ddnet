@@ -516,7 +516,7 @@ static bool gs_ListBoxItemActivated;
 static bool gs_ListBoxClicked;
 
 void CMenus::UiDoListboxStart(const void *pID, const CUIRect *pRect, float RowHeight, const char *pTitle, const char *pBottomText, int NumItems,
-	int ItemsPerRow, int SelectedIndex, float ScrollValue, bool LogicOnly)
+	int ItemsPerRow, int SelectedIndex, float ScrollValue, bool LogicOnly, int Corners)
 {
 	CUIRect Scroll, Row;
 	CUIRect View = *pRect;
@@ -524,7 +524,7 @@ void CMenus::UiDoListboxStart(const void *pID, const CUIRect *pRect, float RowHe
 	if(!LogicOnly)
 	{
 		// background
-		RenderTools()->DrawUIRect(&View, ColorRGBA(0, 0, 0, 0.15f), CUI::CORNER_ALL, 5.0f);
+		RenderTools()->DrawUIRect(&View, ColorRGBA(0, 0, 0, 0.15f), Corners, 5.0f);
 	}
 
 	View.VSplitRight(20.0f, &View, &Scroll);
