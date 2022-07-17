@@ -10,6 +10,8 @@ struct CSkin
 {
 	bool m_IsVanilla;
 
+	static char ms_aPartSkinNames[4][24];
+	
 	struct SSkinTextures
 	{
 		IGraphics::CTextureHandle m_Body;
@@ -110,6 +112,21 @@ struct CSkin
 			m_MaxHeight.Reset();
 		}
 	};
+
+	enum
+	{
+		SKIN_NONE = 0,
+		SKIN_BODY = 1,
+		SKIN_EYES = 2,
+		SKIN_HANDS = 4,
+		SKIN_FEET = 8,
+
+		SKIN_ALL_NO_HAND = SKIN_BODY | SKIN_EYES | SKIN_FEET,
+		SKIN_ALL = SKIN_ALL_NO_HAND | SKIN_HANDS,
+
+		NUM_SKINPARTS = 4		
+	};
+
 
 	struct SSkinMetrics
 	{

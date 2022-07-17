@@ -36,6 +36,7 @@
 using namespace std::chrono_literals;
 
 CMenusKeyBinder CMenus::m_Binder;
+char CSkin::ms_aPartSkinNames[4][24];
 
 CMenusKeyBinder::CMenusKeyBinder()
 {
@@ -409,15 +410,25 @@ struct CUISkin
 	bool operator==(const char *pOther) const { return !str_comp_nocase(m_pSkin->m_aName, pOther); }
 };
 
+enum
+{
+	SKINEDITOR_TAB_BODY = 0,
+	SKINEDITOR_TAB_EYES = 1,
+	SKINEDITOR_TAB_HANDS = 2,
+	SKINEDITOR_TAB_FEET = 3,
+	NUMBER_OF_SKINEDITOR_TABS = 4
+};
+
 void CMenus::RenderSettingsTee(CUIRect MainView)
 {
-	CUIRect Button, Label, Dummy, DummyLabel, SkinList, QuickSearch, QuickSearchClearButton, SkinDB, SkinPrefix, SkinPrefixLabel, DirectoryButton, RefreshButton, Eyes, EyesLabel, EyesTee, EyesRight;
-
+	CUIRect Button, Label, Dummy, DummyLabel, SkinList, QuickSearch, QuickSearchClearButton, SkinDB, SkinPrefix, SkinPrefixLabel, DirectoryButton, RefreshButton, Eyes, EyesLabel, EyesTee, EyesRight, Left, Right, ColPicker, TabBar, Page1Tab, Page2Tab, Page3Tab, Page4Tab;
+	char aBuf[128 + IO_MAX_PATH_LENGTH];
 	static bool s_InitSkinlist = true;
 	Eyes = MainView;
 
 	char *pSkinName = g_Config.m_ClPlayerSkin;
 	int *pUseCustomColor = &g_Config.m_ClPlayerUseCustomColor;
+	int *pUseCustomTee = &g_Config.m_ClPlayerUseCustomTee;
 	unsigned *pColorBody = &g_Config.m_ClPlayerColorBody;
 	unsigned *pColorFeet = &g_Config.m_ClPlayerColorFeet;
 
@@ -429,13 +440,21 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		pColorFeet = &g_Config.m_ClDummyColorFeet;
 	}
 
-	// skin info
+	// create skin info
 	CTeeRenderInfo OwnSkinInfo;
 	const CSkin *pSkin = m_pClient->m_Skins.Get(m_pClient->m_Skins.Find(pSkinName));
 	OwnSkinInfo.m_OriginalRenderSkin = pSkin->m_OriginalSkin;
 	OwnSkinInfo.m_ColorableRenderSkin = pSkin->m_ColorableSkin;
+
+	if(*pUseCustomTee)
+		for(int i = 0; i < 4; i++)
+			if(CSkin::ms_aPartSkinNames[i])
+				OwnSkinInfo.m_aSkinPartTextures[i] = m_pClient->m_Skins.Get(m_pClient->m_Skins.Find(CSkin::ms_aPartSkinNames[i]))->m_OriginalSkin;
+	
 	OwnSkinInfo.m_SkinMetrics = pSkin->m_Metrics;
 	OwnSkinInfo.m_CustomColoredSkin = *pUseCustomColor;
+	OwnSkinInfo.m_CustomTee = *pUseCustomTee;
+
 	if(*pUseCustomColor)
 	{
 		OwnSkinInfo.m_ColorBody = color_cast<ColorRGBA>(ColorHSLA(*pColorBody).UnclampLighting());
@@ -453,7 +472,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	Label.VSplitLeft(230.0f, &Label, 0);
 	Dummy.VSplitLeft(170.0f, &Dummy, &SkinPrefix);
 	SkinPrefix.VSplitLeft(120.0f, &SkinPrefix, &EyesRight);
-	char aBuf[128 + IO_MAX_PATH_LENGTH];
+	
 	str_format(aBuf, sizeof(aBuf), "%s:", Localize("Your skin"));
 	UI()->DoLabel(&Label, aBuf, 14.0f, TEXTALIGN_LEFT);
 
@@ -522,12 +541,19 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 
 	MainView.HSplitTop(50.0f, &Label, &MainView);
 	Label.VSplitLeft(230.0f, &Label, 0);
+
+	// render player tee
 	CAnimState *pIdleState = CAnimState::GetIdle();
 	vec2 OffsetToMid;
+
 	RenderTools()->GetRenderTeeOffsetToRenderedTee(pIdleState, &OwnSkinInfo, OffsetToMid);
 	vec2 TeeRenderPos(Label.x + 30.0f, Label.y + Label.h / 2.0f + OffsetToMid.y);
+
 	int Emote = m_Dummy ? g_Config.m_ClDummyDefaultEyes : g_Config.m_ClPlayerDefaultEyes;
+
 	RenderTools()->RenderTee(pIdleState, &OwnSkinInfo, Emote, vec2(1, 0), TeeRenderPos);
+
+
 	Label.VSplitLeft(70.0f, 0, &Label);
 	Label.HMargin(15.0f, &Label);
 
@@ -578,7 +604,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 					GameClient()->m_Emoticon.EyeEmote(CurrentEyeEmote);
 			}
 		}
-		GameClient()->m_Tooltips.DoToolTip(&s_aEyesToolTip[CurrentEyeEmote], &EyesTee, Localize("Choose default eyes when joining a server"));
+		GameClient()->m_Tooltips.DoToolTip(&s_aEyesToolTip[CurrentEyeEmote], &EyesTee, Localize("Choose default eyes when joining a server"));		
 		RenderTools()->RenderTee(pIdleState, &OwnSkinInfo, CurrentEyeEmote, vec2(1, 0), vec2(EyesTee.x + 25.0f, EyesTee.y + EyesTee.h / 2.0f + OffsetToMid.y));
 	}
 
@@ -590,11 +616,15 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	{
 		SetNeedSendInfo();
 	}
+	
+	MainView.HSplitTop(50.0f, &Left, &MainView);
+	Left.VSplitLeft(130.0f, &Left, &Right);
+	Right.VSplitLeft(60.0f, &Right, 0);
 
-	// custom color selector
-	MainView.HSplitTop(20.0f + RenderEyesBelow * 25.0f, 0, &MainView);
-	MainView.HSplitTop(20.0f, &Button, &MainView);
-	Button.VSplitLeft(150.0f, &Button, 0);
+	Left.HSplitTop(10.0f, 0, &Left);
+	Left.HSplitTop(20.0f, &Button, &Left);
+
+	//custom color
 	static int s_CustomColorID = 0;
 	if(DoButton_CheckBox(&s_CustomColorID, Localize("Custom colors"), *pUseCustomColor, &Button))
 	{
@@ -602,39 +632,72 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		SetNeedSendInfo();
 	}
 
-	MainView.HSplitTop(5.0f, 0, &MainView);
-	MainView.HSplitTop(82.5f, &Label, &MainView);
-	if(*pUseCustomColor)
+	Left.HSplitTop(20.0f, &Button, &Left);
+	// customize tee
+	static int s_UseCustomTee = 0;
+	if(DoButton_CheckBox(&s_UseCustomTee, Localize("Custom tee"), *pUseCustomTee, &Button))
 	{
-		CUIRect aRects[2];
-		Label.VSplitMid(&aRects[0], &aRects[1], 20.0f);
-
-		unsigned *apColors[2] = {pColorBody, pColorFeet};
-		const char *apParts[] = {Localize("Body"), Localize("Feet")};
-
-		for(int i = 0; i < 2; i++)
-		{
-			aRects[i].HSplitTop(20.0f, &Label, &aRects[i]);
-			UI()->DoLabel(&Label, apParts[i], 14.0f, TEXTALIGN_LEFT);
-			aRects[i].VSplitLeft(10.0f, 0, &aRects[i]);
-			aRects[i].HSplitTop(2.5f, 0, &aRects[i]);
-
-			unsigned PrevColor = *apColors[i];
-			RenderHSLScrollbars(&aRects[i], apColors[i], false, true);
-
-			if(PrevColor != *apColors[i])
-			{
-				SetNeedSendInfo();
-			}
-		}
+		*pUseCustomTee = *pUseCustomTee ? 0 : 1;
 	}
 
-	// skin selector
+	// color picker
+	if(*pUseCustomColor)
+	{
+		Right.HSplitTop(29.0f, &ColPicker, &Right);
+		static int BodyColorResetID;
+		DoLine_ColorPicker(&BodyColorResetID, 25.0f, 50.0f, 13.0f, 5.0f, &ColPicker, Localize("Body"), pColorBody, ColorRGBA(1.0f, 1.0f, 0.0f, 1.0f), false);
+
+		Right.HSplitTop(20.0f, &ColPicker, &Right);
+		static int FeetColorResetID;
+		DoLine_ColorPicker(&FeetColorResetID, 25.0f, 50.0f, 13.0f, 5.0f, &ColPicker, Localize("Feet"), pColorFeet, ColorRGBA(1.0f, 1.0f, 0.0f, 1.0f), false);
+	}
+
+
+	MainView.HSplitTop(5.0f, 0, &MainView);
+	static int s_CurTab = SKINEDITOR_TAB_BODY;
+
 	MainView.HSplitTop(20.0f, 0, &MainView);
-	MainView.HSplitTop(230.0f - RenderEyesBelow * 25.0f, &SkinList, &MainView);
+	MainView.HSplitTop(20.0f, &TabBar, &MainView);
+	if(*pUseCustomTee)
+	{
+			
+		// tab bar		
+		float TabsW = TabBar.w;
+		TabBar.VSplitLeft(TabsW / NUMBER_OF_SKINEDITOR_TABS, &Page1Tab, &Page2Tab);
+		Page2Tab.VSplitLeft(TabsW / NUMBER_OF_SKINEDITOR_TABS, &Page2Tab, &Page3Tab);
+		Page3Tab.VSplitLeft(TabsW / NUMBER_OF_SKINEDITOR_TABS, &Page3Tab, &Page4Tab);
+
+		static int s_aPageTabs[NUMBER_OF_SKINEDITOR_TABS] = {};
+
+		if(DoButton_MenuTab(&s_aPageTabs[SKINEDITOR_TAB_BODY], Localize("Body"), s_CurTab == SKINEDITOR_TAB_BODY, &Page1Tab, CUI::CORNER_TL, NULL, NULL, NULL, NULL, 4))
+		{
+			s_CurTab = SKINEDITOR_TAB_BODY;
+		}
+		if(DoButton_MenuTab(&s_aPageTabs[SKINEDITOR_TAB_EYES], Localize("Eyes"), s_CurTab == SKINEDITOR_TAB_EYES, &Page2Tab, 0, NULL, NULL, NULL, NULL, 4))
+		{
+			s_CurTab = SKINEDITOR_TAB_EYES;
+		}
+		if(DoButton_MenuTab(&s_aPageTabs[SKINEDITOR_TAB_HANDS], Localize("Hands"), s_CurTab == SKINEDITOR_TAB_HANDS, &Page3Tab, 0, NULL, NULL, NULL, NULL, 4))
+		{
+			s_CurTab = SKINEDITOR_TAB_HANDS;
+		}
+		if(DoButton_MenuTab(&s_aPageTabs[SKINEDITOR_TAB_FEET], Localize("Feet"), s_CurTab == SKINEDITOR_TAB_FEET, &Page4Tab, CUI::CORNER_TR, NULL, NULL, NULL, NULL, 4))
+		{
+			s_CurTab = SKINEDITOR_TAB_FEET;
+		}
+		
+	}
+	
+	
+
+	// skin selector
+	MainView.HSplitTop(292.5f - RenderEyesBelow * 25.0f, &SkinList, &MainView);
+
 	static std::vector<CUISkin> s_vSkinList;
 	static int s_SkinCount = 0;
 	static float s_ScrollValue = 0.0f;
+
+	// init Skin list
 	if(s_InitSkinlist || m_pClient->m_Skins.Num() != s_SkinCount)
 	{
 		s_vSkinList.clear();
@@ -664,14 +727,27 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		s_SkinCount = m_pClient->m_Skins.Num();
 	}
 
+
+	// render box and items 
 	int OldSelected = -1;
-	UiDoListboxStart(&s_InitSkinlist, &SkinList, 50.0f, Localize("Skins"), "", s_vSkinList.size(), 4, OldSelected, s_ScrollValue);
+	UiDoListboxStart(&s_InitSkinlist, &SkinList, 50.0f, Localize("Skins"), "", s_vSkinList.size(), 4, OldSelected, s_ScrollValue, false ,*pUseCustomTee ? CUI::CORNER_B : CUI::CORNER_ALL);
 	for(size_t i = 0; i < s_vSkinList.size(); ++i)
 	{
 		const CSkin *pSkinToBeDraw = s_vSkinList[i].m_pSkin;
 
-		if(str_comp(pSkinToBeDraw->m_aName, pSkinName) == 0)
-			OldSelected = i;
+		// select current skin
+		if(*pUseCustomTee)
+		{
+			
+			if(CSkin::ms_aPartSkinNames[s_CurTab])
+				if(str_comp(pSkinToBeDraw->m_aName, CSkin::ms_aPartSkinNames[s_CurTab]) == 0)
+					OldSelected = i;
+		}
+		else
+		{
+			if(str_comp(pSkinToBeDraw->m_aName, pSkinName) == 0)
+				OldSelected = i;
+		}
 
 		CListboxItem Item = UiDoListboxNextItem(pSkinToBeDraw, OldSelected >= 0 && (size_t)OldSelected == i);
 		if(Item.m_Visible)
@@ -682,11 +758,15 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 			Info.m_OriginalRenderSkin = pSkinToBeDraw->m_OriginalSkin;
 			Info.m_ColorableRenderSkin = pSkinToBeDraw->m_ColorableSkin;
 			Info.m_SkinMetrics = pSkinToBeDraw->m_Metrics;
+			Info.m_CustomTee = false;
 
 			RenderTools()->GetRenderTeeOffsetToRenderedTee(pIdleState, &Info, OffsetToMid);
 			TeeRenderPos = vec2(Item.m_Rect.x + 30, Item.m_Rect.y + Item.m_Rect.h / 2 + OffsetToMid.y);
-			RenderTools()->RenderTee(pIdleState, &Info, Emote, vec2(1.0f, 0.0f), TeeRenderPos);
 
+			int BodyPart = s_CurTab == SKINEDITOR_TAB_BODY ? CSkin::SKIN_BODY : s_CurTab == SKINEDITOR_TAB_EYES ? CSkin::SKIN_EYES:s_CurTab == SKINEDITOR_TAB_HANDS ? CSkin::SKIN_HANDS:s_CurTab == SKINEDITOR_TAB_FEET ? CSkin::SKIN_FEET : 0;
+			RenderTools()->RenderTee(pIdleState, &Info, Emote, vec2(1.0f, 0.0f), TeeRenderPos, 1.0f, *pUseCustomTee?BodyPart:CSkin::SKIN_ALL_NO_HAND);
+
+			// debug
 			Item.m_Rect.VSplitLeft(60.0f, 0, &Item.m_Rect);
 			SLabelProperties Props;
 			Props.m_MaxWidth = Item.m_Rect.w;
@@ -705,11 +785,26 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	}
 
 	const int NewSelected = UiDoListboxEnd(&s_ScrollValue, 0);
+
 	if(OldSelected != NewSelected)
 	{
-		mem_copy(pSkinName, s_vSkinList[NewSelected].m_pSkin->m_aName, sizeof(g_Config.m_ClPlayerSkin));
-		SetNeedSendInfo();
+		if(*pUseCustomTee)
+		{
+			
+			if(CSkin::ms_aPartSkinNames[s_CurTab])
+				mem_copy(CSkin::ms_aPartSkinNames[s_CurTab], s_vSkinList[NewSelected].m_pSkin->m_aName, sizeof(g_Config.m_ClPlayerSkin));
+		}
+		else
+		{
+			mem_copy(pSkinName, s_vSkinList[NewSelected].m_pSkin->m_aName, sizeof(g_Config.m_ClPlayerSkin));
+			SetNeedSendInfo();	
+		}
+
 	}
+	
+
+	
+
 
 	// render quick search
 	{

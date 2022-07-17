@@ -37,10 +37,12 @@ public:
 
 	CSkin::SSkinTextures m_OriginalRenderSkin;
 	CSkin::SSkinTextures m_ColorableRenderSkin;
+	CSkin::SSkinTextures m_aSkinPartTextures[4];
 
 	CSkin::SSkinMetrics m_SkinMetrics;
 
 	bool m_CustomColoredSkin;
+	bool m_CustomTee = false;
 	ColorRGBA m_BloodColor;
 
 	ColorRGBA m_ColorBody;
@@ -127,8 +129,9 @@ public:
 	// returns the offset to use, to render the tee with @see RenderTee exactly in the mid
 	void GetRenderTeeOffsetToRenderedTee(class CAnimState *pAnim, CTeeRenderInfo *pInfo, vec2 &TeeOffsetToMid);
 	// object render methods
-	void RenderTee(class CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote, vec2 Dir, vec2 Pos, float Alpha = 1.0f);
-
+	void RenderTee(class CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote, vec2 Dir, vec2 Pos, float Alpha = 1.0f, int bodyparts = CSkin::SKIN_ALL_NO_HAND);
+	void RenderHand(CTeeRenderInfo *pInfo, vec2 CenterPos, vec2 Dir, float AngleOffset, vec2 PostRotOffset, float Alpha);
+	
 	// map render methods (render_map.cpp)
 	static void RenderEvalEnvelope(CEnvPoint *pPoints, int NumPoints, int Channels, std::chrono::nanoseconds TimeNanos, ColorRGBA &Result);
 	void RenderQuads(CQuad *pQuads, int NumQuads, int Flags, ENVELOPE_EVAL pfnEval, void *pUser);

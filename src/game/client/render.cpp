@@ -655,7 +655,39 @@ void CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState *pAnim, CTeeRender
 	TeeOffsetToMid.y = -MidOfRendered;
 }
 
-void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote, vec2 Dir, vec2 Pos, float Alpha)
+void CRenderTools::RenderHand(CTeeRenderInfo *pInfo, vec2 CenterPos, vec2 Dir, float AngleOffset, vec2 PostRotOffset, float Alpha)
+{
+	vec2 HandPos = CenterPos + Dir;
+	float Angle = angle(Dir);
+	if(Dir.x < 0)
+		Angle -= AngleOffset;
+	else
+		Angle += AngleOffset;
+
+	vec2 DirX = Dir;
+	vec2 DirY(-Dir.y, Dir.x);
+
+	if(Dir.x < 0)
+		DirY = -DirY;
+
+	HandPos += DirX * PostRotOffset.x;
+	HandPos += DirY * PostRotOffset.y;
+
+	const CSkin::SSkinTextures *pSkinTextures = pInfo->m_CustomColoredSkin ? &pInfo->m_ColorableRenderSkin : &pInfo->m_OriginalRenderSkin;
+
+	Graphics()->SetColor(pInfo->m_ColorBody.r, pInfo->m_ColorBody.g, pInfo->m_ColorBody.b, Alpha);
+
+	// two passes
+	for(int i = 0; i < 2; i++)
+	{
+		int QuadOffset = 2 + i;
+		Graphics()->QuadsSetRotation(Angle);
+		Graphics()->TextureSet(i == 0 ? pSkinTextures->m_HandsOutline : pSkinTextures->m_Hands);
+		Graphics()->RenderQuadContainerAsSprite(m_TeeQuadContainerIndex, QuadOffset, HandPos.x, HandPos.y);
+	}
+}
+
+void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote, vec2 Dir, vec2 Pos, float Alpha, int BodyParts)
 {
 	vec2 Direction = Dir;
 	vec2 Position = Pos;
@@ -672,20 +704,36 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 		{
 			float AnimScale, BaseSize;
 			GetRenderTeeAnimScaleAndBaseSize(pAnim, pInfo, AnimScale, BaseSize);
+
+			//draw front
 			if(f == 1)
 			{
-				Graphics()->QuadsSetRotation(pAnim->GetBody()->m_Angle * pi * 2);
 
-				// draw body
-				Graphics()->SetColor(pInfo->m_ColorBody.r, pInfo->m_ColorBody.g, pInfo->m_ColorBody.b, Alpha);
-				vec2 BodyPos = Position + vec2(pAnim->GetBody()->m_X, pAnim->GetBody()->m_Y) * AnimScale;
+				if(BodyParts & CSkin::SKIN_HANDS)
+				{
+					//TODO
+					RenderHand(pInfo, Position, Direction, pi, vec2(10, -2), Alpha);
+				}
+
 				float BodyScale;
+				vec2 BodyPos = Position + vec2(pAnim->GetBody()->m_X, pAnim->GetBody()->m_Y) * AnimScale;
+				Graphics()->QuadsSetRotation(pAnim->GetBody()->m_Angle * pi * 2);				
+				Graphics()->SetColor(pInfo->m_ColorBody.r, pInfo->m_ColorBody.g, pInfo->m_ColorBody.b, Alpha);				
 				GetRenderTeeBodyScale(BaseSize, BodyScale);
-				Graphics()->TextureSet(OutLine == 1 ? pSkinTextures->m_BodyOutline : pSkinTextures->m_Body);
-				Graphics()->RenderQuadContainerAsSprite(m_TeeQuadContainerIndex, OutLine, BodyPos.x, BodyPos.y, BodyScale, BodyScale);
+
+				if (BodyParts & CSkin::SKIN_BODY) 
+				{				
+					// draw body
+					if(pInfo->m_CustomTee)
+						pSkinTextures = &pInfo->m_aSkinPartTextures[0];
+
+					Graphics()->TextureSet(OutLine == 1 ? pSkinTextures->m_BodyOutline : pSkinTextures->m_Body);
+					Graphics()->RenderQuadContainerAsSprite(m_TeeQuadContainerIndex, OutLine, BodyPos.x, BodyPos.y, BodyScale, BodyScale);
+
+				}
 
 				// draw eyes
-				if(p == 1)
+				if(!OutLine && BodyParts & CSkin::SKIN_EYES)
 				{
 					int QuadOffset = 2;
 					int EyeQuadOffset = 0;
@@ -718,6 +766,8 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 					float EyeSeparation = (0.075f - 0.010f * absolute(Direction.x)) * BaseSize;
 					vec2 Offset = vec2(Direction.x * 0.125f, -0.05f + Direction.y * 0.10f) * BaseSize;
 
+					if(pInfo->m_CustomTee)
+						pSkinTextures = &pInfo->m_aSkinPartTextures[1];
 					Graphics()->TextureSet(pSkinTextures->m_aEyes[TeeEye]);
 					Graphics()->RenderQuadContainerAsSprite(m_TeeQuadContainerIndex, QuadOffset + EyeQuadOffset, BodyPos.x - EyeSeparation + Offset.x, BodyPos.y + Offset.y, EyeScale / (64.f * 0.4f), h / (64.f * 0.4f));
 					Graphics()->RenderQuadContainerAsSprite(m_TeeQuadContainerIndex, QuadOffset + EyeQuadOffset, BodyPos.x + EyeSeparation + Offset.x, BodyPos.y + Offset.y, -EyeScale / (64.f * 0.4f), h / (64.f * 0.4f));
@@ -725,29 +775,34 @@ void CRenderTools::RenderTee(CAnimState *pAnim, CTeeRenderInfo *pInfo, int Emote
 			}
 
 			// draw feet
-			CAnimKeyframe *pFoot = f ? pAnim->GetFrontFoot() : pAnim->GetBackFoot();
-
-			float w = BaseSize;
-			float h = BaseSize / 2;
-
-			int QuadOffset = 7;
-
-			Graphics()->QuadsSetRotation(pFoot->m_Angle * pi * 2);
-
-			bool Indicate = !pInfo->m_GotAirJump && g_Config.m_ClAirjumpindicator;
-			float ColorScale = 1.0f;
-
-			if(!OutLine)
+			if(BodyParts & CSkin::SKIN_FEET)
 			{
-				++QuadOffset;
-				if(Indicate)
-					ColorScale = 0.5f;
+				CAnimKeyframe *pFoot = f ? pAnim->GetFrontFoot() : pAnim->GetBackFoot();
+
+				float w = BaseSize;
+				float h = BaseSize / 2;
+
+				int QuadOffset = 7;
+
+				Graphics()->QuadsSetRotation(pFoot->m_Angle * pi * 2);
+
+				bool Indicate = !pInfo->m_GotAirJump && g_Config.m_ClAirjumpindicator;
+				float ColorScale = 1.0f;
+
+				if(!OutLine)
+				{
+					++QuadOffset;
+					if(Indicate)
+						ColorScale = 0.5f;
+				}
+
+				Graphics()->SetColor(pInfo->m_ColorFeet.r * ColorScale, pInfo->m_ColorFeet.g * ColorScale, pInfo->m_ColorFeet.b * ColorScale, Alpha);
+
+				if(pInfo->m_CustomTee)
+					pSkinTextures = &pInfo->m_aSkinPartTextures[3];		
+				Graphics()->TextureSet(OutLine == 1 ? pSkinTextures->m_FeetOutline : pSkinTextures->m_Feet);
+				Graphics()->RenderQuadContainerAsSprite(m_TeeQuadContainerIndex, QuadOffset, Position.x + pFoot->m_X * AnimScale, Position.y + pFoot->m_Y * AnimScale, w / 64.f, h / 32.f);
 			}
-
-			Graphics()->SetColor(pInfo->m_ColorFeet.r * ColorScale, pInfo->m_ColorFeet.g * ColorScale, pInfo->m_ColorFeet.b * ColorScale, Alpha);
-
-			Graphics()->TextureSet(OutLine == 1 ? pSkinTextures->m_FeetOutline : pSkinTextures->m_Feet);
-			Graphics()->RenderQuadContainerAsSprite(m_TeeQuadContainerIndex, QuadOffset, Position.x + pFoot->m_X * AnimScale, Position.y + pFoot->m_Y * AnimScale, w / 64.f, h / 32.f);
 		}
 	}
 
